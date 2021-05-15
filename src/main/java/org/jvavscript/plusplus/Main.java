@@ -1,3 +1,5 @@
+package org.jvavscript.plusplus;
+
 import  java.util.*;
 import  com.mojang.brigadier.*;
 import  com.mojang.brigadier.exceptions.*;
@@ -24,9 +26,9 @@ public class Main {
 		dispatcher.register(
 			literal("help")
 			.then(
-				argument("command", string())
+				argument("Command", string())
 					.executes(c -> {
-						String command = getString(c, "command");
+						String command = getString(c, "Command");
 						for(String x: dispatcher.getSmartUsage(dispatcher.getRoot().getChild(command), obj).values())
 							System.out.printf("%s %s%n",command,x);
 						return  0;

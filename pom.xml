@@ -7,10 +7,8 @@
 	<artifactId>org.jvavscript.plusplus</artifactId>
 	<version>1.0</version>
 
-	<!-- FIXME change it to the project's name -->
 	<name>JvavScript++</name>
-	<!-- FIXME change it to the project's website -->
-	<url>https://github.com/CrispyXYZ/JvavScript++</url>
+	<url>https://github.com/CrispyXYZ/JvavScriptPlusPlus</url>
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -39,20 +37,42 @@
 			</plugin>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>1.6</version>
+				<executions>
+					<execution>
+						<phase>package</phase>
+						<goals>
+							<goal>shade</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-jar-plugin</artifactId>
 				<version>2.4</version>
 				<configuration>
 					<archive>
 						<manifest>
-							<addClasspath>true</addClasspath>
-							<classpathPrefix>lib/</classpathPrefix>
 							<mainClass>
-								Main
+								org.jvavscript.plusplus.Main
 							</mainClass>
 						</manifest>
 					</archive>
 				</configuration>
 			</plugin>
+			<!--plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-assembly-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifest>
+							<mainClass>Main</mainClass>
+						</manifest>
+					</archive>
+				</configuration>
+			</plugin-->
 		</plugins>
 	</build>
 	
