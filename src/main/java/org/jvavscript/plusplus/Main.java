@@ -10,7 +10,9 @@ import static com.mojang.brigadier.arguments.IntegerArgumentType.*;
 
 public class Main {
 
-	public static String VERSION = "0.2.0";
+	public static boolean sugar = false;
+	public static boolean s2d = false;
+	public static String VERSION = "0.2.1";
 	private static final String VOID = "";
 	public static Object lstCmdRslt = VOID;
 	public static Map<String,Object> map = new HashMap<>();
@@ -39,6 +41,17 @@ public class Main {
 		return cmd;
 	}
 
+	public static String desugar(String cmd){
+		if((cmd.contains(" + ")
+		||cmd.contains(" * ")
+		||cmd.contains(" / ")
+		)&&!cmd.contains("let "))
+			cmd = "let "+cmd;
+		if(cmd.contains(" = "))
+			cmd = "set "+cmd.replace(" = ", " ");
+		return cmd;
+	}
+	
 	public static void main(String[] args) {
 		Object obj = new Object();
 		Scanner scanner = new Scanner(System.in);
@@ -182,12 +195,54 @@ public class Main {
 				})
 			)
 		);
+		dispatcher.register(
+			literal("enable")
+			.then(
+				literal("sugar")
+				.executes(c -> {
+					sugar = true;
+					lstCmdRslt = VOID;
+					return 1;
+				})
+			)
+			.then(
+				literal("s2d")
+				.executes(c -> {
+					s2d = true;
+					lstCmdRslt = VOID;
+					return 1;
+				})
+			)
+		);
+		dispatcher.register(
+			literal("disable")
+			.then(
+				literal("sugar")
+				.executes(c -> {
+					sugar = false;
+					lstCmdRslt = VOID;
+					return 1;
+				})
+			)
+			.then(
+				literal("s2d")
+				.executes(c -> {
+					s2d = false;
+					lstCmdRslt = VOID;
+					return 1;
+				})
+			)
+		);
 		System.out.println("JvavScript++ v" + VERSION);
 		System.out.print(">>> ");
 		while (true) {
 			cmd = scanner.nextLine();
 			cmd = replaceVar(cmd,map);
 			cmd = replaceDef(cmd,mapD);
+			if(sugar)
+				cmd = desugar(cmd);
+			if(s2d)
+				cmd = cmd.replaceFirst("set","define");
 			try {
 				dispatcher.execute(cmd, obj);
 				System.out.println(" <  "+(lstCmdRslt == VOID ? "(void)" : lstCmdRslt));
