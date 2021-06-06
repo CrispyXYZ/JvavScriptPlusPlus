@@ -1,5 +1,6 @@
 package org.jvavscript.plusplus;
 
+import java.io.*;
 import java.util.*;
 import com.mojang.brigadier.*;
 import com.mojang.brigadier.exceptions.*;
@@ -12,13 +13,29 @@ public class Main {
 
 	public static boolean sugar = false;
 	public static boolean s2d = false;
-	public static String VERSION = "0.2.1";
+	public static String VERSION = "0.2.2";
 	private static final String VOID = "";
-	public static Object lstCmdRslt = VOID;
-	public static Map<String,Object> map = new HashMap<>();
-	public static Map<String,String> mapD = new HashMap<>();
+	private static Object lstCmdRslt = VOID;
+	private static Map<String,Object> map = new HashMap<>();
+	private static Map<String,String> mapD = new HashMap<>();
 
-	public static String replaceVar(String cmd,Map map){
+	
+	private static ArrayList<String> readFile(String fname) throws IOException {
+		FileInputStream fis = new FileInputStream(fname);
+		ArrayList<String> lines = new ArrayList<String>();
+		//Construct BufferedReader from InputStreamReader
+		BufferedReader br = new BufferedReader(new InputStreamReader(fis));
+
+		String line = null;
+		while ((line = br.readLine()) != null) {
+			lines.add(line);
+		}
+		br.close();
+        fis.close();
+		return lines;
+	}
+	
+	private static String replaceVar(String cmd,Map map){
 		int vsIndex, veIndex;
 		vsIndex=cmd.indexOf("${");
 		veIndex=cmd.indexOf("}");
@@ -35,20 +52,20 @@ public class Main {
 		return cmd;
 	}
 	
-	public static String replaceDef(String cmd,Map<String,String> map){
+	private static String replaceDef(String cmd,Map<String,String> map){
 		for(Map.Entry e: map.entrySet())
 			cmd = cmd.replace(e.getKey().toString(),e.getValue().toString());
 		return cmd;
 	}
 
-	public static String desugar(String cmd){
+	private static String desugar(String cmd){
 		if((cmd.contains(" + ")
 		||cmd.contains(" * ")
 		||cmd.contains(" / ")
 		)&&!cmd.contains("let "))
 			cmd = "let "+cmd;
-		if(cmd.contains(" = "))
-			cmd = "set "+cmd.replace(" = ", " ");
+		if(cmd.contains(" ="))
+			cmd = "set "+cmd.replace(" =", "");
 		return cmd;
 	}
 	
@@ -233,6 +250,26 @@ public class Main {
 				})
 			)
 		);
+		if(args.length != 0){
+			try{
+				for(String c: readFile(args[0]) ){
+					c = replaceVar(c,map);
+					c = replaceDef(c,mapD);
+					if(sugar)
+						c = desugar(c);
+					if(s2d)
+						c = c.replaceFirst("set","define");
+					try {
+						dispatcher.execute(c, obj);
+					} catch (CommandSyntaxException e) {
+						System.out.println("Error:"+e.getMessage());
+					}
+				}
+			} catch (IOException e){
+				System.out.println("Error:"+e.getMessage());
+			}
+			return;
+		}
 		System.out.println("JvavScript++ v" + VERSION);
 		System.out.print(">>> ");
 		while (true) {
