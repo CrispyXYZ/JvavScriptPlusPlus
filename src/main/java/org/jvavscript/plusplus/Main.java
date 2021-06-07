@@ -250,6 +250,21 @@ public class Main {
 				})
 			)
 		);
+		dispatcher.register(
+			literal("input")
+			then(
+				argument("String", string())
+				.executes(c -> {
+					System.out.print(getString(c,"String"));
+					lstCmdRslt = new Scanner(System.in).nextLine();
+					return 1;
+				})
+			)
+			.executes(c -> {
+				lstCmdRslt = new Scanner(System.in).nextLine();
+				return 1;
+			})
+		);
 		if(args.length != 0){
 			try{
 				for(String c: readFile(args[0]) ){
