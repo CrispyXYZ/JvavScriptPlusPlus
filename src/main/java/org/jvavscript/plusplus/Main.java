@@ -8,16 +8,20 @@ import static com.mojang.brigadier.builder.LiteralArgumentBuilder.literal;
 import static com.mojang.brigadier.builder.RequiredArgumentBuilder.argument;
 import static com.mojang.brigadier.arguments.StringArgumentType.*;
 import static com.mojang.brigadier.arguments.IntegerArgumentType.*;
+import static com.mojang.brigadier.arguments.BoolArgumentType.*;
 
 public class Main {
 
 	public static boolean sugar = false;
 	public static boolean s2d = false;
-	public static String VERSION = "0.2.3";
+	public static String VERSION = "0.3.0";
 	private static final String VOID = "";
 	private static Object lstCmdRslt = VOID;
 	private static Map<String,Object> map = new HashMap<>();
 	private static Map<String,String> mapD = new HashMap<>();
+	private static Map<String,Integer> mapL = new HashMap<>();
+	private static String labelName = "";
+	private static boolean shouldGoTo = false;
 
 	
 	private static ArrayList<String> readFile(String fname) throws IOException {
@@ -265,9 +269,55 @@ public class Main {
 				return 1;
 			})
 		);
+		dispatcher.register(
+			literal("eq")
+			.then(
+				argument("A", string())
+				.then(
+					argument("B", string())
+					.executes(c -> {
+						lstCmdRslt = getString(c, "A").equals(getString(c, "B"));
+						return 1;
+					})
+				)
+			)
+		);
+		dispatcher.register(
+			literal("if")
+			.then(
+				argument("bool", bool())
+				.then(
+					argument("label", string())
+					.executes(c -> {
+						if(getBool(c, "bool"))
+							dispatcher.execute("goto "+getString(c,"label"),obj);
+						return 1;
+					})
+				)
+			)
+		);
+		dispatcher.register(
+			literal("goto")
+			.then(
+				argument("label", string())
+				.executes(c -> {
+					labelName = getString(c, "label");
+					shouldGoTo = true;
+					return 1;
+				})
+			)
+		);
 		if(args.length != 0){
 			try{
-				for(String c: readFile(args[0]) ){
+				ArrayList<String> a = readFile(args[0]);
+				for(int i =0; i < a.size(); i++){
+					String s = a.get(i);
+					if(s.startsWith(";"))
+						mapL.put(s.substring(1),i);
+				}
+				f1:
+				for(int i=0; i < a.size(); i++){
+					String c = a.get(i);
 					c = replaceVar(c,map);
 					c = replaceDef(c,mapD);
 					if(sugar)
@@ -275,9 +325,18 @@ public class Main {
 					if(s2d)
 						c = c.replaceFirst("set","define");
 					try {
+						if(c.isEmpty()||c.startsWith(";"))
+							continue f1;
 						dispatcher.execute(c, obj);
 					} catch (CommandSyntaxException e) {
 						System.out.println("Error:"+e.getMessage());
+					}
+					if(shouldGoTo){
+						if(mapL.containsKey(labelName))
+							i = mapL.get(labelName);
+						else
+							System.out.println("E:label \""+labelName+"\" not found.");
+						shouldGoTo=false;
 					}
 				}
 			} catch (IOException e){
@@ -287,6 +346,7 @@ public class Main {
 		}
 		System.out.println("JvavScript++ v" + VERSION);
 		System.out.print(">>> ");
+		w1:
 		while (true) {
 			cmd = scanner.nextLine();
 			cmd = replaceVar(cmd,map);
@@ -296,7 +356,15 @@ public class Main {
 			if(s2d)
 				cmd = cmd.replaceFirst("set","define");
 			try {
+				if(cmd.isEmpty()){
+					System.out.print(">>> ");
+					continue w1;
+				}
 				dispatcher.execute(cmd, obj);
+				if(shouldGoTo){
+					System.out.println("W: goto is not allowed to use in interactive mode, do nothing.");
+					shouldGoTo=false;
+				}
 				System.out.println(" <  "+(lstCmdRslt == VOID ? "(void)" : lstCmdRslt));
 				System.out.print(">>> ");
 			} catch (CommandSyntaxException e) {
