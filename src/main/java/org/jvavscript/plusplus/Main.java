@@ -13,7 +13,7 @@ public class Main {
 
 	public static boolean sugar = false;
 	public static boolean s2d = false;
-	public static String VERSION = "0.2.2";
+	public static String VERSION = "0.2.3";
 	private static final String VOID = "";
 	private static Object lstCmdRslt = VOID;
 	private static Map<String,Object> map = new HashMap<>();
@@ -252,7 +252,7 @@ public class Main {
 		);
 		dispatcher.register(
 			literal("input")
-			then(
+			.then(
 				argument("String", string())
 				.executes(c -> {
 					System.out.print(getString(c,"String"));
