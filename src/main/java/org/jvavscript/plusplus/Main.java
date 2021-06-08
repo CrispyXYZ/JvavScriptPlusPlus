@@ -7,14 +7,14 @@ import com.mojang.brigadier.exceptions.*;
 import static com.mojang.brigadier.builder.LiteralArgumentBuilder.literal;
 import static com.mojang.brigadier.builder.RequiredArgumentBuilder.argument;
 import static com.mojang.brigadier.arguments.StringArgumentType.*;
-import static com.mojang.brigadier.arguments.IntegerArgumentType.*;
+import static com.mojang.brigadier.arguments.DoubleArgumentType.*;
 import static com.mojang.brigadier.arguments.BoolArgumentType.*;
 
 public class Main {
 
-	public static boolean sugar = false;
+	public static boolean sugar = true;
 	public static boolean s2d = false;
-	public static String VERSION = "0.3.0";
+	public static String VERSION = "0.3.1";
 	private static final String VOID = "";
 	private static Object lstCmdRslt = VOID;
 	private static Map<String,Object> map = new HashMap<>();
@@ -68,7 +68,7 @@ public class Main {
 		||cmd.contains(" / ")
 		)&&!cmd.contains("let "))
 			cmd = "let "+cmd;
-		if(cmd.contains(" ="))
+		if(cmd.contains(" =")&&!cmd.contains("=="))
 			cmd = "set "+cmd.replace(" =", "");
 		return cmd;
 	}
@@ -132,13 +132,13 @@ public class Main {
 		dispatcher.register(
 			literal("let")
 			.then(
-				argument("int1", integer())
+				argument("num1", doubleArg())
 				.then(
 					literal("+")
 					.then(
-						argument("int2", integer())
+						argument("num2", doubleArg())
 						.executes(c -> {
-							lstCmdRslt = getInteger(c, "int1")+getInteger(c, "int2");
+							lstCmdRslt = getDouble(c, "num1")+getDouble(c, "num2");
 							return 1;
 						})
 					)
@@ -146,9 +146,9 @@ public class Main {
 				.then(
 					literal("*")
 					.then(
-						argument("int2", integer())
+						argument("num2", doubleArg())
 						.executes(c -> {
-							lstCmdRslt = getInteger(c, "int1")*getInteger(c, "int2");
+							lstCmdRslt = getDouble(c, "num1")*getDouble(c, "num2");
 							return 1;
 						})
 					)
@@ -156,9 +156,9 @@ public class Main {
 				.then(
 					literal("/")
 					.then(
-						argument("int2", integer())
+						argument("num2", doubleArg())
 						.executes(c -> {
-							lstCmdRslt = getInteger(c, "int1")/getInteger(c, "int2");
+							lstCmdRslt = getDouble(c, "num1")/getDouble(c, "num2");
 							return 1;
 						})
 					)
@@ -181,15 +181,15 @@ public class Main {
 				.then(
 					argument("value", string())
 					.executes(c -> {
-						Object r = map.put(getString(c, "name"),getString(c, "value"));
-						System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+getString(c, "value")+" instead of "+r+"\n");
+						/*Object r = */map.put(getString(c, "name"),getString(c, "value"));
+						//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+getString(c, "value")+" instead of "+r+"\n");
 						lstCmdRslt = VOID;
 						return 1;
 					})
 				)
 				.executes(c -> {
-					Object r = map.put(getString(c, "name"),lstCmdRslt);
-					System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+lstCmdRslt+" instead of "+r+"\n");
+					/*Object r = */map.put(getString(c, "name"),lstCmdRslt);
+					//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+lstCmdRslt+" instead of "+r+"\n");
 					lstCmdRslt = VOID;
 					return 1;
 				})
@@ -202,15 +202,15 @@ public class Main {
 				.then(
 					argument("value", string())
 					.executes(c -> {
-						String r = mapD.put(getString(c, "name"),getString(c, "value"));
-						System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+getString(c, "value")+" instead of "+r+"\n");
+						/*String r = */mapD.put(getString(c, "name"),getString(c, "value"));
+						//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+getString(c, "value")+" instead of "+r+"\n");
 						lstCmdRslt = VOID;
 						return 1;
 					})
 				)
 				.executes(c -> {
-					String r = mapD.put(getString(c, "name"),lstCmdRslt.toString());
-					System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+lstCmdRslt+" instead of "+r+"\n");
+					/*String r = */mapD.put(getString(c, "name"),lstCmdRslt.toString());
+					//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+lstCmdRslt+" instead of "+r+"\n");
 					lstCmdRslt = VOID;
 					return 1;
 				})
@@ -270,17 +270,74 @@ public class Main {
 			})
 		);
 		dispatcher.register(
-			literal("eq")
+			literal("cmp")
 			.then(
-				argument("A", string())
+				argument("String1", string())
 				.then(
-					argument("B", string())
-					.executes(c -> {
-						lstCmdRslt = getString(c, "A").equals(getString(c, "B"));
-						return 1;
-					})
+					literal("==")
+					.then(
+						argument("String2", string())
+						.executes(c -> {
+							lstCmdRslt = getString(c, "String1").equals(getString(c, "String2"));
+							return 1;
+						})
+					)
 				)
 			)
+			.then(
+				argument("Number1", doubleArg())
+				.then(
+					literal(">")
+					.then(
+						argument("Number2", doubleArg())
+						.executes(c -> {
+							lstCmdRslt = getDouble(c, "Number1") > getDouble(c, "Number2");
+							return 1;
+						})
+					)
+				)
+				.then(
+					literal("==")
+					.then(
+						argument("Number2",doubleArg())
+						.executes(c -> {
+							lstCmdRslt = getDouble(c, "Number1") == getDouble(c, "Number2");
+							return 1;
+						})
+					)
+				)
+				.then(
+					literal("<")
+					.then(
+						argument("Number2", doubleArg())
+						.executes(c -> {
+							lstCmdRslt = getDouble(c, "Number1") < getDouble(c, "Number2");
+							return 1;
+						})
+					)
+				)
+			)
+		);
+		dispatcher.register(
+			literal("random")
+			.executes(c -> {
+				lstCmdRslt = Math.random();
+				return 1;
+			})
+		);
+		dispatcher.register(
+			literal("floor")
+			.then(
+				argument("Number",doubleArg())
+				.executes(c -> {
+					lstCmdRslt = (int)getDouble(c, "Number");
+					return 1;
+				})
+			)
+			.executes(c -> {
+				lstCmdRslt = ((Double)lstCmdRslt).intValue();
+				return 1;
+			})
 		);
 		dispatcher.register(
 			literal("if")
