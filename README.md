@@ -9,10 +9,10 @@ English | [简体中文](README-zh.md)
 * Requirements: 
    * JRE 8+ (recommend 11)
 ***
-Download `org.jvavscript.plusplus-1.0.jar` in [Releases](https://github.com/CrispyXYZ/JvavScriptPlusPlus/releases).
+Download `JvavScriptPlusPlus-1.0.jar` in [Releases](https://github.com/CrispyXYZ/JvavScriptPlusPlus/releases).
 Then run:
 ```ruby
-java -jar org.jvavscript.plusplus-1.0.jar
+java -jar JvavScriptPlusPlus-1.0.jar
 ```
 
 ## How to build?
@@ -22,7 +22,7 @@ java -jar org.jvavscript.plusplus-1.0.jar
    * Git (optional)
 ***
 1. Get the sources. Run `git clone https://github.com/CrispyXYZ/JvavScriptPlusPlus` OR download the sources from GitHub.
-2. Run `mvn -B package --file pom.xml`. Then it will create `target/org.jvavscript.plusplus-1.0.jar`.
+2. Run `mvn -B package --file pom.xml`. Then it will create `target/JvavScriptPlusPlus-1.0.jar`.
 3. Run the jar file.
 
 Tip: You can also build it in an IDE.
