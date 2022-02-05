@@ -14,7 +14,7 @@ public class Main {
 
 	public static boolean sugar = true;
 	public static boolean s2d = false;
-	public static String VERSION = "0.3.1";
+	public static String VERSION = "0.3.2";
 	private static final String VOID = "";
 	private static Object lstCmdRslt = VOID;
 	private static Map<String,Object> map = new HashMap<>();
@@ -68,8 +68,10 @@ public class Main {
 		||cmd.contains(" / ")
 		)&&!cmd.contains("let "))
 			cmd = "let "+cmd;
-		if(cmd.contains(" =")&&!cmd.contains("=="))
+		if(cmd.contains(" =")&&!cmd.contains("==")&&!cmd.contains("set "))
 			cmd = "set "+cmd.replace(" =", "");
+		if((cmd.contains(" < ")||cmd.contains(" > ")||cmd.contains(" == "))&&!cmd.contains("cmp "))
+			cmd = "cmp "+cmd;
 		return cmd;
 	}
 	
@@ -80,6 +82,22 @@ public class Main {
 		CommandDispatcher<Object> dispatcher = new CommandDispatcher<>();
 		dispatcher.register(
 			literal("print")
+			.then(
+				argument("String", string())
+				.executes(c -> {
+					System.out.print(getString(c, "String"));
+					lstCmdRslt = VOID;
+					return 1;
+				})
+			)
+			.executes(c -> {
+				System.out.print(lstCmdRslt);
+				lstCmdRslt = VOID;
+				return 1;
+			})
+		);
+		dispatcher.register(
+			literal("println")
 			.then(
 				argument("String", string())
 				.executes(c -> {
@@ -417,7 +435,7 @@ public class Main {
 					System.out.print(">>> ");
 					continue w1;
 				}
-				dispatcher.execute(cmd, obj);
+				dispatcher.execute(cmd.replace("\\n","\n"), obj);
 				if(shouldGoTo){
 					System.out.println("W: goto is not allowed to use in interactive mode, do nothing.");
 					shouldGoTo=false;
