@@ -9,10 +9,10 @@
 * 要求：
    * JRE 8+ (推荐11)
 ***
-在[Releases](https://github.com/CrispyXYZ/JvavScriptPlusPlus/releases)中下载`org.jvavscript.plusplus-1.0.jar`。
+在[Releases](https://github.com/CrispyXYZ/JvavScriptPlusPlus/releases)中下载`JvavScriptPlusPlus-1.0.jar`。
 然后执行：
 ```ruby
-java -jar org.jvavscript.plusplus-1.0.jar
+java -jar JvavScriptPlusPlus-1.0.jar
 ```
 
 ## 如何构建？
@@ -22,7 +22,7 @@ java -jar org.jvavscript.plusplus-1.0.jar
    * Git (可选)
 ***
 1. 获取源码。执行`git clone https://github.com/CrispyXYZ/JvavScriptPlusPlus` 或 从GitHub下载源码。
-2. 执行`mvn -B package --file pom.xml`。它将会创建`target/org.jvavscript.plusplus-1.0.jar`。
+2. 执行`mvn -B package --file pom.xml`。它将会创建`target/JvavScriptPlusPlus-1.0.jar`。
 3. 运行jar文件
 
 提示：你也可以在IDE中构建它。
