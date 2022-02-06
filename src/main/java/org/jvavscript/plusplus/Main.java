@@ -9,12 +9,13 @@ import static com.mojang.brigadier.builder.RequiredArgumentBuilder.argument;
 import static com.mojang.brigadier.arguments.StringArgumentType.*;
 import static com.mojang.brigadier.arguments.DoubleArgumentType.*;
 import static com.mojang.brigadier.arguments.BoolArgumentType.*;
+import static com.mojang.brigadier.arguments.IntegerArgumentType.*;
 
 public class Main {
 
 	public static boolean sugar = true;
 	public static boolean s2d = false;
-	public static String VERSION = "0.3.2";
+	public static String VERSION = "0.3.3";
 	private static final String VOID = "";
 	private static Object lstCmdRslt = VOID;
 	private static Map<String,Object> map = new HashMap<>();
@@ -32,6 +33,12 @@ public class Main {
 
 		String line = null;
 		while ((line = br.readLine()) != null) {
+			if(line.startsWith("#include ")){
+				line = line.substring(9);
+				if(line.charAt(0)=='"') line = line.substring(1, line.length()-1);
+				lines.addAll(readFile(line));
+				continue;
+			}
 			lines.add(line);
 		}
 		br.close();
@@ -45,7 +52,7 @@ public class Main {
 		veIndex=cmd.indexOf("}");
 		String sq = "";
 		try{
-			sq = cmd.subSequence(vsIndex+2,veIndex).toString();
+			sq = cmd.substring(vsIndex+2,veIndex);
 		} catch (StringIndexOutOfBoundsException e) {}
 		//System.out.println(sq);
 		if(vsIndex + veIndex != -2 && map.containsKey(sq)){
@@ -75,7 +82,7 @@ public class Main {
 		return cmd;
 	}
 	
-	public static void main(String[] args) {
+	public synchronized static void main(String[] args) {
 		Object obj = new Object();
 		Scanner scanner = new Scanner(System.in);
 		String cmd;
@@ -111,6 +118,38 @@ public class Main {
 				lstCmdRslt = VOID;
 				return 1;
 			})
+		);
+		dispatcher.register(
+			literal("charat")
+			.then(
+				argument("String", string())
+				.then(
+					argument("index", integer())
+					.executes(c -> {
+						try{
+							lstCmdRslt = getString(c, "String").charAt(getInteger(c, "index"));
+							return 1;
+						} catch(StringIndexOutOfBoundsException e) {
+							System.out.println(e);
+							lstCmdRslt = VOID;
+							return 0;
+						}
+					})
+				)
+			)
+		);
+		dispatcher.register(
+			literal("indexof")
+			.then(
+				argument("String", string())
+				.then(
+					argument("anotherString", string())
+					.executes(c -> {
+						lstCmdRslt = getString(c, "String").indexOf(getString(c, "anotherString"));
+						return 1;
+					})
+				)
+			)
 		);
 		dispatcher.register(
 			literal("exit")
@@ -201,14 +240,13 @@ public class Main {
 					.executes(c -> {
 						/*Object r = */map.put(getString(c, "name"),getString(c, "value"));
 						//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+getString(c, "value")+" instead of "+r+"\n");
-						lstCmdRslt = VOID;
+						lstCmdRslt = getString(c, "value");
 						return 1;
 					})
 				)
 				.executes(c -> {
 					/*Object r = */map.put(getString(c, "name"),lstCmdRslt);
 					//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+lstCmdRslt+" instead of "+r+"\n");
-					lstCmdRslt = VOID;
 					return 1;
 				})
 			)
@@ -222,14 +260,13 @@ public class Main {
 					.executes(c -> {
 						/*String r = */mapD.put(getString(c, "name"),getString(c, "value"));
 						//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+getString(c, "value")+" instead of "+r+"\n");
-						lstCmdRslt = VOID;
+						lstCmdRslt = getString(c, "value");
 						return 1;
 					})
 				)
 				.executes(c -> {
 					/*String r = */mapD.put(getString(c, "name"),lstCmdRslt.toString());
 					//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+lstCmdRslt+" instead of "+r+"\n");
-					lstCmdRslt = VOID;
 					return 1;
 				})
 			)
@@ -337,6 +374,16 @@ public class Main {
 			)
 		);
 		dispatcher.register(
+			literal("not")
+			.then(
+				argument("bool", bool())
+				.executes(c -> {
+					lstCmdRslt = !getBool(c, "bool");
+					return 1;
+				})
+			)
+		);
+		dispatcher.register(
 			literal("random")
 			.executes(c -> {
 				lstCmdRslt = Math.random();
@@ -390,7 +437,6 @@ public class Main {
 					if(s.startsWith(";"))
 						mapL.put(s.substring(1),i);
 				}
-				f1:
 				for(int i=0; i < a.size(); i++){
 					String c = a.get(i);
 					c = replaceVar(c,map);
@@ -401,7 +447,7 @@ public class Main {
 						c = c.replaceFirst("set","define");
 					try {
 						if(c.isEmpty()||c.startsWith(";"))
-							continue f1;
+							continue;
 						dispatcher.execute(c, obj);
 					} catch (CommandSyntaxException e) {
 						System.out.println("Error:"+e.getMessage());
@@ -415,13 +461,12 @@ public class Main {
 					}
 				}
 			} catch (IOException e){
-				System.out.println("Error:"+e.getMessage());
+				System.out.println(e);
 			}
 			return;
 		}
 		System.out.println("JvavScript++ v" + VERSION);
 		System.out.print(">>> ");
-		w1:
 		while (true) {
 			cmd = scanner.nextLine();
 			cmd = replaceVar(cmd,map);
@@ -433,7 +478,7 @@ public class Main {
 			try {
 				if(cmd.isEmpty()){
 					System.out.print(">>> ");
-					continue w1;
+					continue;
 				}
 				dispatcher.execute(cmd.replace("\\n","\n"), obj);
 				if(shouldGoTo){
