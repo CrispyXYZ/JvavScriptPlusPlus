@@ -11,16 +11,21 @@ import static com.mojang.brigadier.arguments.DoubleArgumentType.*;
 import static com.mojang.brigadier.arguments.BoolArgumentType.*;
 import static com.mojang.brigadier.arguments.IntegerArgumentType.*;
 
+
+//TODO 变量增加作用域
+//TODO 多次调用同一函数
+//TODO 函数不依赖label实现
 public class Main {
 
-	public static boolean sugar = true;
-	public static boolean s2d = false;
-	public static String VERSION = "0.3.3";
-	private static final String VOID = "";
+	public static final String VERSION = "0.3.4";
+	public static final String VOID = "";
+	private static boolean sugar = true;
+	private static boolean s2d = false;
 	private static Object lstCmdRslt = VOID;
 	private static Map<String,Object> map = new HashMap<>();
 	private static Map<String,String> mapD = new HashMap<>();
 	private static Map<String,Integer> mapL = new HashMap<>();
+	private static Map<String,String[]> mapF = new HashMap<>();
 	private static String labelName = "";
 	private static boolean shouldGoTo = false;
 
@@ -32,11 +37,51 @@ public class Main {
 		BufferedReader br = new BufferedReader(new InputStreamReader(fis));
 
 		String line = null;
+		boolean isInFun = false;
+		String cfName = "";
+		String[] cfParams = null;
 		while ((line = br.readLine()) != null) {
+			if(line.equals("#end")){
+				isInFun = false;
+				lines.add("goto "+cfName+"_end");
+				continue;
+			}
+			if(isInFun){
+				if(cfParams[0]!=""){
+					for(String p : cfParams){
+						line = line.replace(p, cfName+"_"+p);
+					}
+				}
+			}
 			if(line.startsWith("#include ")){
 				line = line.substring(9);
 				if(line.charAt(0)=='"') line = line.substring(1, line.length()-1);
 				lines.addAll(readFile(line));
+				continue;
+			}
+			if(line.startsWith("#fun ")){
+				line = line.substring(5);
+				cfName = line.substring(0,line.indexOf("("));
+				cfParams = line.substring(line.indexOf("(")+1,line.indexOf(")")).split(",");
+				mapF.put(cfName,cfParams);
+				isInFun = true;
+				line = ";"+cfName;
+			}
+			if(line.startsWith("#")
+			&&line.indexOf("fun")!=1
+			&&mapF.containsKey(line.substring(1,line.indexOf("(")))){
+				String fun = line.substring(1,line.indexOf("("));
+				String[] params = mapF.get(fun);
+				String[] pValues = line.substring(line.indexOf("(")+1,line.indexOf(")")).split(",");
+				if(params.length!=0){
+					for(int i=0;i<params.length;i++){
+						String param = params[i];
+						String value = pValues[i];
+						lines.add("set "+fun+"_"+param+" "+value);
+					}
+				}
+				lines.add("goto "+fun);
+				lines.add(";"+fun+"_end");
 				continue;
 			}
 			lines.add(line);
@@ -130,7 +175,7 @@ public class Main {
 							lstCmdRslt = getString(c, "String").charAt(getInteger(c, "index"));
 							return 1;
 						} catch(StringIndexOutOfBoundsException e) {
-							System.out.println(e);
+							//System.out.println(e);
 							lstCmdRslt = VOID;
 							return 0;
 						}
@@ -429,9 +474,20 @@ public class Main {
 				})
 			)
 		);
+		dispatcher.register(
+			literal("return")
+			.then(
+				argument("value", string())
+				.executes(c -> {
+					lstCmdRslt = getString(c, "value");
+					return 1;
+				})
+			)
+		);
 		if(args.length != 0){
 			try{
 				ArrayList<String> a = readFile(args[0]);
+				//System.out.println(Arrays.toString(a.toArray()));
 				for(int i =0; i < a.size(); i++){
 					String s = a.get(i);
 					if(s.startsWith(";"))
@@ -445,6 +501,7 @@ public class Main {
 						c = desugar(c);
 					if(s2d)
 						c = c.replaceFirst("set","define");
+					//System.out.println(c);
 					try {
 						if(c.isEmpty()||c.startsWith(";"))
 							continue;
