@@ -1,5 +1,5 @@
 # JvavScript++
-English | [简体中文](README-zh.md)
+wiki [here](https://github.com/CrispyXYZ/JvavScriptPlusPlus/wiki)
 
 ## What is this?
 * JvavScript++ is an enhanced version of JvavScript.
@@ -7,7 +7,7 @@ English | [简体中文](README-zh.md)
 
 ## How to run?
 * Requirements: 
-   * JRE 8+ (recommend 11)
+   * JRE
 ***
 Download `JvavScriptPlusPlus-1.0.jar` in [Releases](https://github.com/CrispyXYZ/JvavScriptPlusPlus/releases).
 Then run:
@@ -17,12 +17,13 @@ java -jar JvavScriptPlusPlus-1.0.jar
 
 ## How to build?
 * Requirements:
-   * JDK 11+ (recommend 11)
+   * JDK
    * Maven
    * Git (optional)
 ***
-1. Get the sources. Run `git clone https://github.com/CrispyXYZ/JvavScriptPlusPlus` OR download the sources from GitHub.
-2. Run `mvn -B package --file pom.xml`. Then it will create `target/JvavScriptPlusPlus-1.0.jar`.
-3. Run the jar file.
+Run:
+```ruby
+mvn -B package --file pom.xml
+```
 
 Tip: You can also build it in an IDE.

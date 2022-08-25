@@ -13,25 +13,27 @@ import static com.mojang.brigadier.arguments.IntegerArgumentType.*;
 
 public class Main {
 
+	private static final Object obj = new Object();
+	private static final CommandDispatcher<Object> dispatcher = new CommandDispatcher<>();
 	public static boolean sugar = true;
 	public static boolean s2d = false;
 	public static String VERSION = "0.3.3";
 	private static final String VOID = "";
-	private static Object lstCmdRslt = VOID;
-	private static Map<String,Object> map = new HashMap<>();
-	private static Map<String,String> mapD = new HashMap<>();
-	private static Map<String,Integer> mapL = new HashMap<>();
+	private static Object lastCommandResult = VOID;
+	private static final Map<String,Object> map = new HashMap<>();
+	private static final Map<String,String> mapDefinition = new HashMap<>();
+	private static final Map<String,Integer> mapLabel = new HashMap<>();
 	private static String labelName = "";
 	private static boolean shouldGoTo = false;
 
-	
-	private static ArrayList<String> readFile(String fname) throws IOException {
-		FileInputStream fis = new FileInputStream(fname);
-		ArrayList<String> lines = new ArrayList<String>();
+
+	private static ArrayList<String> readFile(String filename) throws IOException {
+		FileInputStream fis = new FileInputStream(filename);
+		ArrayList<String> lines = new ArrayList<>();
 		//Construct BufferedReader from InputStreamReader
 		BufferedReader br = new BufferedReader(new InputStreamReader(fis));
 
-		String line = null;
+		String line;
 		while ((line = br.readLine()) != null) {
 			if(line.startsWith("#include ")){
 				line = line.substring(9);
@@ -46,26 +48,24 @@ public class Main {
 		return lines;
 	}
 	
-	private static String replaceVar(String cmd,Map map){
+	private static String replaceVar(String cmd,Map<String, Object> map){
 		int vsIndex, veIndex;
 		vsIndex=cmd.indexOf("${");
 		veIndex=cmd.indexOf("}");
-		String sq = "";
+		String varName = "";
 		try{
-			sq = cmd.substring(vsIndex+2,veIndex);
-		} catch (StringIndexOutOfBoundsException e) {}
-		//System.out.println(sq);
-		if(vsIndex + veIndex != -2 && map.containsKey(sq)){
-			cmd = cmd.replaceFirst("\\$\\{.+?\\}",map.get(sq).toString());
+			varName = cmd.substring(vsIndex+2,veIndex);
+		} catch (StringIndexOutOfBoundsException ignored) {}
+		if(vsIndex + veIndex != -2 && map.containsKey(varName)){
+			cmd = cmd.replaceFirst("\\$\\{.+?}",map.get(varName).toString());
 			cmd = replaceVar(cmd,map);
 		}
-		//System.out.println(cmd);
 		return cmd;
 	}
 	
-	private static String replaceDef(String cmd,Map<String,String> map){
-		for(Map.Entry e: map.entrySet())
-			cmd = cmd.replace(e.getKey().toString(),e.getValue().toString());
+	private static String replaceDef(String cmd){
+		for(Map.Entry<String, String> e: mapDefinition.entrySet())
+			cmd = cmd.replace(e.getKey(), e.getValue());
 		return cmd;
 	}
 
@@ -83,23 +83,98 @@ public class Main {
 	}
 	
 	public synchronized static void main(String[] args) {
-		Object obj = new Object();
+		registerCommands();
+		if(args.length != 0){
+			parseScript(args[0]);
+			return;
+		}
+
+		System.out.println("JvavScript++ v" + VERSION);
+		System.out.print(">>> ");
+		//noinspection InfiniteLoopStatement
+		while (true) {
+			interpret();
+		}
+	}
+
+	private static void interpret() {
 		Scanner scanner = new Scanner(System.in);
 		String cmd;
-		CommandDispatcher<Object> dispatcher = new CommandDispatcher<>();
+		cmd = scanner.nextLine();
+		cmd = replaceVar(cmd,map);
+		cmd = replaceDef(cmd);
+		if(sugar)
+			cmd = desugar(cmd);
+		if(s2d)
+			cmd = cmd.replaceFirst("set","define");
+		try {
+			if(cmd.isEmpty()){
+				System.out.print(">>> ");
+				return;
+			}
+			dispatcher.execute(cmd.replace("\\n","\n"), obj);
+			if(shouldGoTo){
+				System.out.println("W: goto is not allowed to use in interactive mode, do nothing.");
+				shouldGoTo=false;
+			}
+			System.out.println(" <  "+(lastCommandResult == VOID ? "(void)" : lastCommandResult));
+			System.out.print(">>> ");
+		} catch (CommandSyntaxException e) {
+			System.out.println(e.getMessage());
+			System.out.print(">>> ");
+		}
+	}
+
+	private static void parseScript(String arg) {
+		try{
+			ArrayList<String> a = readFile(arg);
+			for(int i =0; i < a.size(); i++){
+				String s = a.get(i);
+				if(s.startsWith(";"))
+					mapLabel.put(s.substring(1),i);
+			}
+			for(int i=0; i < a.size(); i++){
+				String c = a.get(i);
+				c = replaceVar(c,map);
+				c = replaceDef(c);
+				if(sugar)
+					c = desugar(c);
+				if(s2d)
+					c = c.replaceFirst("set","define");
+				try {
+					if(c.isEmpty()||c.startsWith(";"))
+						continue;
+					dispatcher.execute(c, obj);
+				} catch (CommandSyntaxException e) {
+					System.out.println("Error:"+e.getMessage());
+				}
+				if(shouldGoTo){
+					if(mapLabel.containsKey(labelName))
+						i = mapLabel.get(labelName);
+					else
+						System.out.println("E:label \""+labelName+"\" not found.");
+					shouldGoTo=false;
+				}
+			}
+		} catch (IOException e){
+			e.printStackTrace();
+		}
+	}
+
+	private static void registerCommands() {
 		dispatcher.register(
 			literal("print")
 			.then(
 				argument("String", string())
 				.executes(c -> {
 					System.out.print(getString(c, "String"));
-					lstCmdRslt = VOID;
+					lastCommandResult = VOID;
 					return 1;
 				})
 			)
 			.executes(c -> {
-				System.out.print(lstCmdRslt);
-				lstCmdRslt = VOID;
+				System.out.print(lastCommandResult);
+				lastCommandResult = VOID;
 				return 1;
 			})
 		);
@@ -109,13 +184,13 @@ public class Main {
 				argument("String", string())
 				.executes(c -> {
 					System.out.println(getString(c, "String"));
-					lstCmdRslt = VOID;
+					lastCommandResult = VOID;
 					return 1;
 				})
 			)
 			.executes(c -> {
-				System.out.println(lstCmdRslt);
-				lstCmdRslt = VOID;
+				System.out.println(lastCommandResult);
+				lastCommandResult = VOID;
 				return 1;
 			})
 		);
@@ -127,11 +202,11 @@ public class Main {
 					argument("index", integer())
 					.executes(c -> {
 						try{
-							lstCmdRslt = getString(c, "String").charAt(getInteger(c, "index"));
+							lastCommandResult = getString(c, "String").charAt(getInteger(c, "index"));
 							return 1;
 						} catch(StringIndexOutOfBoundsException e) {
-							System.out.println(e);
-							lstCmdRslt = VOID;
+							e.printStackTrace();
+							lastCommandResult = VOID;
 							return 0;
 						}
 					})
@@ -145,7 +220,7 @@ public class Main {
 				.then(
 					argument("anotherString", string())
 					.executes(c -> {
-						lstCmdRslt = getString(c, "String").indexOf(getString(c, "anotherString"));
+						lastCommandResult = getString(c, "String").indexOf(getString(c, "anotherString"));
 						return 1;
 					})
 				)
@@ -155,7 +230,7 @@ public class Main {
 			literal("exit")
 			.executes(c -> {
 				System.exit(0);
-				lstCmdRslt = "E: Could not exit program.";
+				lastCommandResult = "E: Could not exit program.";
 				return 0;
 			})
 		);
@@ -163,7 +238,7 @@ public class Main {
 			literal("version")
 			.executes(c -> {
 				dispatcher.execute("print " + VERSION, obj);
-				lstCmdRslt = VOID;
+				lastCommandResult = VOID;
 				return 1;
 			})
 		);
@@ -175,14 +250,14 @@ public class Main {
 					String command = getString(c, "Command");
 					for (String x : dispatcher.getAllUsage(dispatcher.getRoot().getChild(command), obj, true))
 						System.out.printf("%s %s%n", command, x);
-					lstCmdRslt = VOID;
+					lastCommandResult = VOID;
 					return 1;
 				})
 			)
 			.executes(c -> {
 				for (String x : dispatcher.getSmartUsage(dispatcher.getRoot(), obj).values())
 					System.out.println(x);
-				lstCmdRslt = VOID;
+				lastCommandResult = VOID;
 				return 1;
 			})
 		);
@@ -195,7 +270,7 @@ public class Main {
 					.then(
 						argument("num2", doubleArg())
 						.executes(c -> {
-							lstCmdRslt = getDouble(c, "num1")+getDouble(c, "num2");
+							lastCommandResult = getDouble(c, "num1")+getDouble(c, "num2");
 							return 1;
 						})
 					)
@@ -205,7 +280,7 @@ public class Main {
 					.then(
 						argument("num2", doubleArg())
 						.executes(c -> {
-							lstCmdRslt = getDouble(c, "num1")*getDouble(c, "num2");
+							lastCommandResult = getDouble(c, "num1")*getDouble(c, "num2");
 							return 1;
 						})
 					)
@@ -215,7 +290,7 @@ public class Main {
 					.then(
 						argument("num2", doubleArg())
 						.executes(c -> {
-							lstCmdRslt = getDouble(c, "num1")/getDouble(c, "num2");
+							lastCommandResult = getDouble(c, "num1")/getDouble(c, "num2");
 							return 1;
 						})
 					)
@@ -226,8 +301,8 @@ public class Main {
 			literal("list")
 			.executes(c -> {
 				System.out.println("variables: " + map);
-				System.out.println("defines:   " + mapD);
-				lstCmdRslt = VOID;
+				System.out.println("defines:   " + mapDefinition);
+				lastCommandResult = VOID;
 				return 1;
 			})
 		);
@@ -240,12 +315,12 @@ public class Main {
 					.executes(c -> {
 						/*Object r = */map.put(getString(c, "name"),getString(c, "value"));
 						//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+getString(c, "value")+" instead of "+r+"\n");
-						lstCmdRslt = getString(c, "value");
+						lastCommandResult = getString(c, "value");
 						return 1;
 					})
 				)
 				.executes(c -> {
-					/*Object r = */map.put(getString(c, "name"),lstCmdRslt);
+					/*Object r = */map.put(getString(c, "name"), lastCommandResult);
 					//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+lstCmdRslt+" instead of "+r+"\n");
 					return 1;
 				})
@@ -258,14 +333,16 @@ public class Main {
 				.then(
 					argument("value", string())
 					.executes(c -> {
-						/*String r = */mapD.put(getString(c, "name"),getString(c, "value"));
+						/*String r = */
+						mapDefinition.put(getString(c, "name"),getString(c, "value"));
 						//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+getString(c, "value")+" instead of "+r+"\n");
-						lstCmdRslt = getString(c, "value");
+						lastCommandResult = getString(c, "value");
 						return 1;
 					})
 				)
 				.executes(c -> {
-					/*String r = */mapD.put(getString(c, "name"),lstCmdRslt.toString());
+					/*String r = */
+					mapDefinition.put(getString(c, "name"), lastCommandResult.toString());
 					//System.out.print( r == null ? "" : "W: "+getString(c, "name")+" now is "+lstCmdRslt+" instead of "+r+"\n");
 					return 1;
 				})
@@ -277,7 +354,7 @@ public class Main {
 				literal("sugar")
 				.executes(c -> {
 					sugar = true;
-					lstCmdRslt = VOID;
+					lastCommandResult = VOID;
 					return 1;
 				})
 			)
@@ -285,7 +362,7 @@ public class Main {
 				literal("s2d")
 				.executes(c -> {
 					s2d = true;
-					lstCmdRslt = VOID;
+					lastCommandResult = VOID;
 					return 1;
 				})
 			)
@@ -296,7 +373,7 @@ public class Main {
 				literal("sugar")
 				.executes(c -> {
 					sugar = false;
-					lstCmdRslt = VOID;
+					lastCommandResult = VOID;
 					return 1;
 				})
 			)
@@ -304,7 +381,7 @@ public class Main {
 				literal("s2d")
 				.executes(c -> {
 					s2d = false;
-					lstCmdRslt = VOID;
+					lastCommandResult = VOID;
 					return 1;
 				})
 			)
@@ -315,12 +392,12 @@ public class Main {
 				argument("String", string())
 				.executes(c -> {
 					System.out.print(getString(c,"String"));
-					lstCmdRslt = new Scanner(System.in).nextLine();
+					lastCommandResult = new Scanner(System.in).nextLine();
 					return 1;
 				})
 			)
 			.executes(c -> {
-				lstCmdRslt = new Scanner(System.in).nextLine();
+				lastCommandResult = new Scanner(System.in).nextLine();
 				return 1;
 			})
 		);
@@ -333,7 +410,7 @@ public class Main {
 					.then(
 						argument("String2", string())
 						.executes(c -> {
-							lstCmdRslt = getString(c, "String1").equals(getString(c, "String2"));
+							lastCommandResult = getString(c, "String1").equals(getString(c, "String2"));
 							return 1;
 						})
 					)
@@ -346,7 +423,7 @@ public class Main {
 					.then(
 						argument("Number2", doubleArg())
 						.executes(c -> {
-							lstCmdRslt = getDouble(c, "Number1") > getDouble(c, "Number2");
+							lastCommandResult = getDouble(c, "Number1") > getDouble(c, "Number2");
 							return 1;
 						})
 					)
@@ -356,7 +433,7 @@ public class Main {
 					.then(
 						argument("Number2",doubleArg())
 						.executes(c -> {
-							lstCmdRslt = getDouble(c, "Number1") == getDouble(c, "Number2");
+							lastCommandResult = getDouble(c, "Number1") == getDouble(c, "Number2");
 							return 1;
 						})
 					)
@@ -366,7 +443,7 @@ public class Main {
 					.then(
 						argument("Number2", doubleArg())
 						.executes(c -> {
-							lstCmdRslt = getDouble(c, "Number1") < getDouble(c, "Number2");
+							lastCommandResult = getDouble(c, "Number1") < getDouble(c, "Number2");
 							return 1;
 						})
 					)
@@ -378,7 +455,7 @@ public class Main {
 			.then(
 				argument("bool", bool())
 				.executes(c -> {
-					lstCmdRslt = !getBool(c, "bool");
+					lastCommandResult = !getBool(c, "bool");
 					return 1;
 				})
 			)
@@ -386,7 +463,7 @@ public class Main {
 		dispatcher.register(
 			literal("random")
 			.executes(c -> {
-				lstCmdRslt = Math.random();
+				lastCommandResult = Math.random();
 				return 1;
 			})
 		);
@@ -395,12 +472,12 @@ public class Main {
 			.then(
 				argument("Number",doubleArg())
 				.executes(c -> {
-					lstCmdRslt = (int)getDouble(c, "Number");
+					lastCommandResult = (int)getDouble(c, "Number");
 					return 1;
 				})
 			)
 			.executes(c -> {
-				lstCmdRslt = ((Double)lstCmdRslt).intValue();
+				lastCommandResult = ((Double) lastCommandResult).intValue();
 				return 1;
 			})
 		);
@@ -412,7 +489,7 @@ public class Main {
 					argument("label", string())
 					.executes(c -> {
 						if(getBool(c, "bool"))
-							dispatcher.execute("goto "+getString(c,"label"),obj);
+							dispatcher.execute("goto "+getString(c,"label"), obj);
 						return 1;
 					})
 				)
@@ -429,68 +506,5 @@ public class Main {
 				})
 			)
 		);
-		if(args.length != 0){
-			try{
-				ArrayList<String> a = readFile(args[0]);
-				for(int i =0; i < a.size(); i++){
-					String s = a.get(i);
-					if(s.startsWith(";"))
-						mapL.put(s.substring(1),i);
-				}
-				for(int i=0; i < a.size(); i++){
-					String c = a.get(i);
-					c = replaceVar(c,map);
-					c = replaceDef(c,mapD);
-					if(sugar)
-						c = desugar(c);
-					if(s2d)
-						c = c.replaceFirst("set","define");
-					try {
-						if(c.isEmpty()||c.startsWith(";"))
-							continue;
-						dispatcher.execute(c, obj);
-					} catch (CommandSyntaxException e) {
-						System.out.println("Error:"+e.getMessage());
-					}
-					if(shouldGoTo){
-						if(mapL.containsKey(labelName))
-							i = mapL.get(labelName);
-						else
-							System.out.println("E:label \""+labelName+"\" not found.");
-						shouldGoTo=false;
-					}
-				}
-			} catch (IOException e){
-				System.out.println(e);
-			}
-			return;
-		}
-		System.out.println("JvavScript++ v" + VERSION);
-		System.out.print(">>> ");
-		while (true) {
-			cmd = scanner.nextLine();
-			cmd = replaceVar(cmd,map);
-			cmd = replaceDef(cmd,mapD);
-			if(sugar)
-				cmd = desugar(cmd);
-			if(s2d)
-				cmd = cmd.replaceFirst("set","define");
-			try {
-				if(cmd.isEmpty()){
-					System.out.print(">>> ");
-					continue;
-				}
-				dispatcher.execute(cmd.replace("\\n","\n"), obj);
-				if(shouldGoTo){
-					System.out.println("W: goto is not allowed to use in interactive mode, do nothing.");
-					shouldGoTo=false;
-				}
-				System.out.println(" <  "+(lstCmdRslt == VOID ? "(void)" : lstCmdRslt));
-				System.out.print(">>> ");
-			} catch (CommandSyntaxException e) {
-				System.out.println(e.getMessage());
-				System.out.print(">>> ");
-			}
-		}
 	}
 }
