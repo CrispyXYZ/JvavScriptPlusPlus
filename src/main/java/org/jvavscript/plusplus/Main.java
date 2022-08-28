@@ -40,7 +40,7 @@ public class Main {
     private static final Map<String, Map<String, Integer>> mapLabelFunction = new HashMap<>();
     public static boolean sugar = true;
     public static boolean s2d = false;
-    public static String VERSION = "0.5.0";
+    public static String VERSION = "0.5.0-patch1";
     private static Object lastCommandResult = VOID;
     private static String labelName = "";
     private static boolean shouldGoTo = false;
@@ -56,19 +56,10 @@ public class Main {
     }
 
     private static List<String> readFile(String filename) throws IOException {
-        InputStream is;
-        List<String> lines;
-        BufferedReader br;
-        if(filename.startsWith("__jar_res_")) {
-            filename = filename.substring(10);
-            is = Main.class.getClassLoader().getResourceAsStream(filename);
-        } else {
-            is = new FileInputStream(filename);
-        }
-        if(is == null) throw new IOException("Input stream is null.");
-        lines = new ArrayList<>();
+        InputStream is = new FileInputStream(filename);
+        List<String> lines = new ArrayList<>();
         //Construct BufferedReader from InputStreamReader
-        br = new BufferedReader(new InputStreamReader(is));
+        BufferedReader br = new BufferedReader(new InputStreamReader(is));
 
         String line;
         while ((line = br.readLine()) != null) {
@@ -88,7 +79,7 @@ public class Main {
             if (line.startsWith("#include ")) {
                 line = line.substring(9);
                 if (line.charAt(0) == '"') line = line.substring(1, line.length() - 1);
-                lines.addAll(readFile("__jar_res_includes/"+line));
+                lines.addAll(readFile(line));
                 continue;
             }
             lines.add(line);
