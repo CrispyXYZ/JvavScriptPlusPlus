@@ -1,5 +1,6 @@
 package org.jvavscript.plusplus;
 
+import com.mojang.brigadier.Command;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
@@ -7,10 +8,10 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 
-import java.io.BufferedReader;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 
 import static com.mojang.brigadier.arguments.BoolArgumentType.bool;
@@ -19,8 +20,7 @@ import static com.mojang.brigadier.arguments.DoubleArgumentType.doubleArg;
 import static com.mojang.brigadier.arguments.DoubleArgumentType.getDouble;
 import static com.mojang.brigadier.arguments.IntegerArgumentType.getInteger;
 import static com.mojang.brigadier.arguments.IntegerArgumentType.integer;
-import static com.mojang.brigadier.arguments.StringArgumentType.getString;
-import static com.mojang.brigadier.arguments.StringArgumentType.string;
+import static com.mojang.brigadier.arguments.StringArgumentType.*;
 import static com.mojang.brigadier.builder.LiteralArgumentBuilder.literal;
 import static com.mojang.brigadier.builder.RequiredArgumentBuilder.argument;
 import static org.jvavscript.plusplus.FunctionParametersArgumentType.functionParameters;
@@ -36,10 +36,11 @@ public class Main {
     private static final Map<String, Object> map = new HashMap<>();
     private static final Map<String, String> mapDefinition = new HashMap<>();
     private static final Map<String, Integer> mapLabel = new HashMap<>();
+    private static final Map<Integer, Object> mapObjects = new HashMap<>();
     private static final Map<String, Map<String, Integer>> mapLabelFunction = new HashMap<>();
     public static boolean sugar = true;
     public static boolean s2d = false;
-    public static String VERSION = "0.4.0";
+    public static String VERSION = "0.5.0";
     private static Object lastCommandResult = VOID;
     private static String labelName = "";
     private static boolean shouldGoTo = false;
@@ -55,13 +56,23 @@ public class Main {
     }
 
     private static List<String> readFile(String filename) throws IOException {
-        FileInputStream fis = new FileInputStream(filename);
-        List<String> lines = new ArrayList<>();
+        InputStream is;
+        List<String> lines;
+        BufferedReader br;
+        if(filename.startsWith("__jar_res_")) {
+            filename = filename.substring(10);
+            is = Main.class.getClassLoader().getResourceAsStream(filename);
+        } else {
+            is = new FileInputStream(filename);
+        }
+        if(is == null) throw new IOException("Input stream is null.");
+        lines = new ArrayList<>();
         //Construct BufferedReader from InputStreamReader
-        BufferedReader br = new BufferedReader(new InputStreamReader(fis));
+        br = new BufferedReader(new InputStreamReader(is));
 
         String line;
         while ((line = br.readLine()) != null) {
+            line = line.replaceAll("\\*(?=[0-9a-zA-Z_.])", "__ptr_");
             if (line.startsWith("function")) {
                 if (!line.contains("]")) {
                     if (line.endsWith("[")) {
@@ -77,13 +88,13 @@ public class Main {
             if (line.startsWith("#include ")) {
                 line = line.substring(9);
                 if (line.charAt(0) == '"') line = line.substring(1, line.length() - 1);
-                lines.addAll(readFile(line));
+                lines.addAll(readFile("__jar_res_includes/"+line));
                 continue;
             }
             lines.add(line);
         }
         br.close();
-        fis.close();
+        is.close();
         return lines;
     }
 
@@ -111,7 +122,7 @@ public class Main {
     }
 
     private static String desugar(String cmd) {
-        if (cmd.startsWith("function")) return cmd.replaceAll("(?<=\\S)\\(", " (").replace(")[", ") [");;
+        if (cmd.startsWith("function")) return cmd.replaceAll("(?<=\\S)\\(", " (").replace(")[", ") [");
         if ((cmd.contains(" + ")
             || cmd.contains(" * ")
             || cmd.contains(" / ")
@@ -144,6 +155,7 @@ public class Main {
         Scanner scanner = new Scanner(System.in);
         String cmd;
         cmd = scanner.nextLine();
+        cmd = cmd.replaceAll("\\*(?=[0-9a-zA-Z_.])", "__ptr_");
         cmd = replaceVar(cmd);
         cmd = replaceDef(cmd);
         if (sugar)
@@ -361,8 +373,12 @@ public class Main {
         dispatcher.register(
             literal("list")
                 .executes(c -> {
+                    System.out.println("WARNING: This command is only for debugging.");
                     System.out.println("variables: " + map);
-                    System.out.println("defines:   " + mapDefinition);
+                    System.out.println("defines: " + mapDefinition);
+                    System.out.println("labels: " + mapLabel);
+                    System.out.println("functionLabels: " + mapLabelFunction);
+                    System.out.println("objects: " + mapObjects);
                     lastCommandResult = VOID;
                     return 1;
                 })
@@ -374,13 +390,28 @@ public class Main {
                         .then(
                             argument("value", string())
                                 .executes(c -> {
-                                    map.put(getString(c, "name"), getString(c, "value"));
-                                    lastCommandResult = getString(c, "value");
+                                    String name = getString(c, "name");
+                                    String value = getString(c, "value");
+                                    if (name.startsWith("__ptr_")) {
+                                        name = name.substring(6);
+                                        map.put(name, value.hashCode());
+                                        mapObjects.put(value.hashCode(), value);
+                                        return 1;
+                                    }
+                                    map.put(name, value);
+                                    lastCommandResult = value;
                                     return 1;
                                 })
                         )
                         .executes(c -> {
-                            map.put(getString(c, "name"), lastCommandResult);
+                            String name = getString(c, "name");
+                            if (name.startsWith("__ptr_")) {
+                                name = name.substring(6);
+                                map.put(name, lastCommandResult.hashCode());
+                                mapObjects.put(lastCommandResult.hashCode(), lastCommandResult);
+                                return 1;
+                            }
+                            map.put(name, lastCommandResult);
                             return 1;
                         })
                 )
@@ -601,6 +632,179 @@ public class Main {
                         )
                 )
         );
+        dispatcher.register(
+            literal("construct")
+                .then(
+                    argument("className", string())
+                        .then(
+                            argument("args", string())
+                                .executes(c -> {
+                                    String className = getString(c, "className");
+                                    Class<?> clazz;
+                                    try {
+                                        clazz = Class.forName(className);
+                                    } catch (ClassNotFoundException e) {
+                                        e.printStackTrace();
+                                        return 0;
+                                    }
+
+                                    String args = getString(c, "args");
+                                    String[] argsArray = "".equals(args) ? new String[0] : args.split(",");
+                                    Class<?>[] argsType = new Class[argsArray.length];
+                                    Object[] argsValue = new Object[argsArray.length];
+                                    try {
+                                        for (int i = 0; i < argsArray.length; i++) {
+                                            String[] argsEach = argsArray[i].split(" ");
+                                            argsType[i] = getClazz(argsEach[0]);
+                                            argsValue[i] = getValue(argsEach[1], argsEach[0]);
+                                        }
+                                    } catch (ClassNotFoundException | NullPointerException |
+                                             ClassCastException | NumberFormatException e) {
+                                        e.printStackTrace();
+                                        return 0;
+                                    }
+
+                                    try {
+                                        lastCommandResult = clazz.getConstructor(argsType).newInstance(argsValue);
+                                    } catch (NoSuchMethodException | InstantiationException |
+                                             IllegalAccessException | InvocationTargetException e) {
+                                        e.printStackTrace();
+                                        return 0;
+                                    }
+                                    return 1;
+                                })
+                        )
+                )
+        );
+        dispatcher.register(
+            literal("invoke")
+                .then(
+                    argument("className", string())
+                        .then(
+                            argument("*object", integer())
+                                .then(
+                                    argument("methodName", string())
+                                        .then(
+                                            argument("args", string())
+                                                .executes(c -> {
+                                                    String className = getString(c, "className");
+                                                    Class<?> clazz;
+                                                    try {
+                                                        clazz = Class.forName(className);
+                                                    } catch (ClassNotFoundException e) {
+                                                        e.printStackTrace();
+                                                        return 0;
+                                                    }
+
+                                                    int hash = getInteger(c, "*object");
+                                                    Object object = hash == 0 ? null : mapObjects.get(hash);
+
+                                                    String args = getString(c, "args");
+                                                    String[] argsArray = "".equals(args) ? new String[0] : args.split(",");
+                                                    Class<?>[] argsType = new Class[argsArray.length];
+                                                    Object[] argsValue = new Object[argsArray.length];
+                                                    try {
+                                                        for (int i = 0; i < argsArray.length; i++) {
+                                                            String[] argsEach = argsArray[i].split(" ");
+                                                            argsType[i] = getClazz(argsEach[0]);
+                                                            argsValue[i] = getValue(argsEach[1], argsEach[0]);
+                                                        }
+                                                    } catch (ClassNotFoundException | NullPointerException |
+                                                             ClassCastException | NumberFormatException e) {
+                                                        e.printStackTrace();
+                                                        return 0;
+                                                    }
+
+                                                    Method method;
+                                                    Object result;
+                                                    try {
+                                                        method = clazz.getMethod(getString(c, "methodName"), argsType);
+                                                        result = method.invoke(object,argsValue);
+                                                    } catch (NoSuchMethodException | IllegalAccessException |
+                                                             InvocationTargetException e) {
+                                                        e.printStackTrace();
+                                                        return 0;
+                                                    }
+                                                    lastCommandResult = result;
+                                                    return 1;
+                                                })
+                                        )
+                                )
+                        )
+                )
+        );
+        dispatcher.register(
+            literal("getfield")
+                .then(
+                    argument("className", string())
+                        .then(
+                            argument("*object", integer())
+                                .then(
+                                    argument("fieldName", string())
+                                        .executes( c -> {
+                                            String className = getString(c, "className");
+                                            Class<?> clazz;
+                                            try {
+                                                clazz = Class.forName(className);
+                                            } catch (ClassNotFoundException e) {
+                                                e.printStackTrace();
+                                                return 0;
+                                            }
+
+                                            int hash = getInteger(c, "*object");
+                                            Object object = hash == 0 ? null : mapObjects.get(hash);
+
+                                            String fieldName = getString(c, "fieldName");
+                                            Field field;
+                                            Object result;
+                                            try {
+                                                field = clazz.getField(fieldName);
+                                                result = field.get(object);
+                                            } catch (NoSuchFieldException | IllegalAccessException e) {
+                                                e.printStackTrace();
+                                                return 0;
+                                            }
+                                            lastCommandResult = result;
+                                            return 1;
+                                        })
+                                )
+                        )
+                )
+        );
+    }
+
+    private static Object getValue(String value, String className) throws ClassNotFoundException, NullPointerException, ClassCastException, NumberFormatException {
+        return switch (className) {
+            case "boolean" -> Boolean.parseBoolean(value);
+            case "byte" -> Byte.parseByte(value);
+            case "short" -> Short.parseShort(value);
+            case "char" -> value.charAt(0);
+            case "int" -> Integer.parseInt(value);
+            case "long" -> Long.parseLong(value);
+            case "float" -> Float.parseFloat(value);
+            case "double" -> Double.parseDouble(value);
+            case "java.lang.String" -> value;
+            default -> {
+                Object obj = mapObjects.get(Integer.valueOf(value));
+                if (obj == null) throw new NullPointerException();
+                yield Class.forName(className).cast(obj);
+            }
+        };
+    }
+
+    private static Class<?> getClazz(String name) throws ClassNotFoundException {
+        return switch (name) {
+            case "boolean" -> boolean.class;
+            case "byte" -> byte.class;
+            case "short" -> short.class;
+            case "char" -> char.class;
+            case "int" -> int.class;
+            case "long" -> long.class;
+            case "float" -> float.class;
+            case "double" -> double.class;
+            case "void" -> void.class;
+            default -> Class.forName(name);
+        };
     }
 
     private static String replaceParam(CommandContext<Object> c, String cmd, List<String> params) {
@@ -622,25 +826,37 @@ public class Main {
         mapLabelFunction.putIfAbsent(name, new HashMap<>());
         return mapLabelFunction.get(name);
     }
+
     private static void registerFunction(String name, List<String> parameters, List<String> statements) {
         List<String> copy = new ArrayList<>(parameters);
         String lastParam = parameters.get(parameters.size() - 1);
         parameters.remove(parameters.size() - 1);
+        if (parameters.isEmpty()) {
+            dispatcher.register(literal(name)
+                .executes(getObjectCommand(name, statements, copy))
+            );
+            return;
+        }
         //noinspection unchecked
         dispatcher.register((LiteralArgumentBuilder<Object>) forLiteral(
             argument(lastParam, string())
-                .executes(c -> {
-                    List<String> copiedStatements = new ArrayList<>(statements);
-                    for (int i = 0; i < copiedStatements.size(); i++) {
-                        var each = copiedStatements.get(i);
-                        if (each.contains("%")) {
-                            copiedStatements.set(i, replaceParam(c, each, copy));
-                        }
-                    }
-                    addLabelsToMap(copiedStatements, getFunctionLabelMap(name));
-                    executeCommandList(copiedStatements, getFunctionLabelMap(name));
-                    return 1;
-                }), parameters, name));
+                .executes(getObjectCommand(name, statements, copy)), parameters, name));
+    }
+
+    private static Command<Object> getObjectCommand(String name, List<String> statements, List<String> copy) {
+        return c -> {
+            List<String> copiedStatements = new ArrayList<>(statements);
+            for (int i = 0; i < copiedStatements.size(); i++) {
+                var each = copiedStatements.get(i);
+                if (each.contains("%")) {
+                    copiedStatements.set(i, replaceParam(c, each, copy));
+                }
+            }
+
+            addLabelsToMap(copiedStatements, getFunctionLabelMap(name));
+            executeCommandList(copiedStatements, getFunctionLabelMap(name));
+            return 1;
+        };
     }
 
     private static ArgumentBuilder<Object, ?> forLiteral

@@ -7,7 +7,7 @@ wiki [here](https://github.com/CrispyXYZ/JvavScriptPlusPlus/wiki)
 
 ## How to run?
 * Requirements: 
-   * JRE 11+
+   * JRE 17+
 ***
 Download `JvavScriptPlusPlus-1.0.jar` in [Releases](https://github.com/CrispyXYZ/JvavScriptPlusPlus/releases).
 Then run:
@@ -17,7 +17,7 @@ java -jar JvavScriptPlusPlus-1.0.jar
 
 ## How to build?
 * Requirements:
-   * JDK 11+
+   * JDK 17+
    * Maven
    * Git (optional)
 ***
