@@ -13,6 +13,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import static com.mojang.brigadier.arguments.BoolArgumentType.bool;
 import static com.mojang.brigadier.arguments.BoolArgumentType.getBool;
@@ -40,7 +41,7 @@ public class Main {
     private static final Map<String, Map<String, Integer>> mapLabelFunction = new HashMap<>();
     public static boolean sugar = true;
     public static boolean s2d = false;
-    public static String VERSION = "0.5.0-patch2";
+    public static String VERSION = "0.5.1";
     private static Object lastCommandResult = VOID;
     private static String labelName = "";
     private static boolean shouldGoTo = false;
@@ -647,7 +648,7 @@ public class Main {
                                     Object[] argsValue = new Object[argsArray.length];
                                     try {
                                         for (int i = 0; i < argsArray.length; i++) {
-                                            String[] argsEach = argsArray[i].split(" ");
+                                            String[] argsEach = argsArray[i].trim().split(" ");
                                             argsType[i] = getClazz(argsEach[0]);
                                             argsValue[i] = getValue(argsEach[1], argsEach[0]);
                                         }
@@ -698,7 +699,7 @@ public class Main {
                                                     Object[] argsValue = new Object[argsArray.length];
                                                     try {
                                                         for (int i = 0; i < argsArray.length; i++) {
-                                                            String[] argsEach = argsArray[i].split(" ");
+                                                            String[] argsEach = argsArray[i].trim().split(" ");
                                                             argsType[i] = getClazz(argsEach[0]);
                                                             argsValue[i] = getValue(argsEach[1], argsEach[0]);
                                                         }
@@ -777,9 +778,12 @@ public class Main {
             case "float" -> Float.parseFloat(value);
             case "double" -> Double.parseDouble(value);
             case "java.lang.String" -> {
-                Object obj = mapObjects.get(Integer.valueOf(value));
-                if (obj == null) yield value;
-                yield obj.toString();
+                if(Pattern.compile("[0-9]+").matcher(value).matches()) {
+                    Object obj = mapObjects.get(Integer.valueOf(value));
+                    if (obj == null) yield value;
+                    yield obj.toString();
+                }
+                yield value;
             }
             default -> {
                 Object obj = mapObjects.get(Integer.valueOf(value));
