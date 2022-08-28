@@ -40,7 +40,7 @@ public class Main {
     private static final Map<String, Map<String, Integer>> mapLabelFunction = new HashMap<>();
     public static boolean sugar = true;
     public static boolean s2d = false;
-    public static String VERSION = "0.5.0-patch1";
+    public static String VERSION = "0.5.0-patch2";
     private static Object lastCommandResult = VOID;
     private static String labelName = "";
     private static boolean shouldGoTo = false;
@@ -291,7 +291,7 @@ public class Main {
         dispatcher.register(
             literal("version")
                 .executes(c -> {
-                    dispatcher.execute("print " + VERSION, obj);
+                    dispatcher.execute("println " + VERSION, obj);
                     lastCommandResult = VOID;
                     return 1;
                 })
@@ -387,6 +387,7 @@ public class Main {
                                         name = name.substring(6);
                                         map.put(name, value.hashCode());
                                         mapObjects.put(value.hashCode(), value);
+                                        lastCommandResult = value;
                                         return 1;
                                     }
                                     map.put(name, value);
@@ -617,6 +618,7 @@ public class Main {
                                             List<String> parameters = getFunctionParameters(c, "parameters");
                                             List<String> statements = getFunctionStatement(c, "statements");
                                             registerFunction(functionName, parameters, statements);
+                                            lastCommandResult = VOID;
                                             return 1;
                                         })
                                 )
@@ -774,7 +776,11 @@ public class Main {
             case "long" -> Long.parseLong(value);
             case "float" -> Float.parseFloat(value);
             case "double" -> Double.parseDouble(value);
-            case "java.lang.String" -> value;
+            case "java.lang.String" -> {
+                Object obj = mapObjects.get(Integer.valueOf(value));
+                if (obj == null) yield value;
+                yield obj.toString();
+            }
             default -> {
                 Object obj = mapObjects.get(Integer.valueOf(value));
                 if (obj == null) throw new NullPointerException();
