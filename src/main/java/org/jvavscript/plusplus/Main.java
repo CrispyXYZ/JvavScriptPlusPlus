@@ -830,14 +830,14 @@ public class Main {
 
     private static void registerFunction(String name, List<String> parameters, List<String> statements) {
         List<String> copy = new ArrayList<>(parameters);
-        String lastParam = parameters.get(parameters.size() - 1);
-        parameters.remove(parameters.size() - 1);
         if (parameters.isEmpty()) {
             dispatcher.register(literal(name)
                 .executes(getObjectCommand(name, statements, copy))
             );
             return;
         }
+        String lastParam = parameters.get(parameters.size() - 1);
+        parameters.remove(parameters.size() - 1);
         //noinspection unchecked
         dispatcher.register((LiteralArgumentBuilder<Object>) forLiteral(
             argument(lastParam, string())
