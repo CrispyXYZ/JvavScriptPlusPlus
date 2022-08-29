@@ -41,7 +41,7 @@ public class Main {
     private static final Map<String, Map<String, Integer>> mapLabelFunction = new HashMap<>();
     public static boolean sugar = true;
     public static boolean s2d = false;
-    public static String VERSION = "0.5.1";
+    public static String VERSION = "0.5.2";
     private static Object lastCommandResult = VOID;
     private static String labelName = "";
     private static boolean shouldGoTo = false;
@@ -643,14 +643,14 @@ public class Main {
                                     }
 
                                     String args = getString(c, "args");
-                                    String[] argsArray = "".equals(args) ? new String[0] : args.split(",");
+                                    String[] argsArray = "".equals(args) ? new String[0] : args.split("(?<!\\\\),");
                                     Class<?>[] argsType = new Class[argsArray.length];
                                     Object[] argsValue = new Object[argsArray.length];
                                     try {
                                         for (int i = 0; i < argsArray.length; i++) {
-                                            String[] argsEach = argsArray[i].trim().split(" ");
+                                            String[] argsEach = argsArray[i].trim().split("(?<!\\\\) ");
                                             argsType[i] = getClazz(argsEach[0]);
-                                            argsValue[i] = getValue(argsEach[1], argsEach[0]);
+                                            argsValue[i] = getValue(argsEach[1].replaceAll("\\\\(?=[, ])",""), argsEach[0]);
                                         }
                                     } catch (ClassNotFoundException | NullPointerException |
                                              ClassCastException | NumberFormatException e) {
@@ -694,14 +694,14 @@ public class Main {
                                                     Object object = hash == 0 ? null : mapObjects.get(hash);
 
                                                     String args = getString(c, "args");
-                                                    String[] argsArray = "".equals(args) ? new String[0] : args.split(",");
+                                                    String[] argsArray = "".equals(args) ? new String[0] : args.split("(?<!\\\\),");
                                                     Class<?>[] argsType = new Class[argsArray.length];
                                                     Object[] argsValue = new Object[argsArray.length];
                                                     try {
                                                         for (int i = 0; i < argsArray.length; i++) {
-                                                            String[] argsEach = argsArray[i].trim().split(" ");
+                                                            String[] argsEach = argsArray[i].trim().split("(?<!\\\\) ");
                                                             argsType[i] = getClazz(argsEach[0]);
-                                                            argsValue[i] = getValue(argsEach[1], argsEach[0]);
+                                                            argsValue[i] = getValue(argsEach[1].replaceAll("\\\\(?=[, ])",""), argsEach[0]);
                                                         }
                                                     } catch (ClassNotFoundException | NullPointerException |
                                                              ClassCastException | NumberFormatException e) {

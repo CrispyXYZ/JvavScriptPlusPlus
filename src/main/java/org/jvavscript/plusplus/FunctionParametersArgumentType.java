@@ -27,9 +27,9 @@ public class FunctionParametersArgumentType implements ArgumentType<List<String>
         char begin = reader.read();
         if(begin!='(') throw new SimpleCommandExceptionType(new LiteralMessage("expected (")).createWithContext(reader);
         String parameters = reader.readStringUntil(')');
-        String[] parameter = parameters.split(",");
+        String[] parameter = parameters.split("(?<!\\\\),");
         for(int i=0;i<parameter.length;i++) {
-            parameter[i] = parameter[i].trim();
+            parameter[i] = parameter[i].trim().replace("\\,",",");
         }
         return new ArrayList<>(Arrays.asList(parameter));
     }

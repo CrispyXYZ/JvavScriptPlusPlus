@@ -29,9 +29,9 @@ public class FunctionStatementArgumentType implements ArgumentType<List<String>>
         String statement = reader.getRemaining();
         statement = statement.substring(0,statement.length()-1);
         reader.setCursor(reader.getTotalLength());
-        String[] split = statement.split(",");
+        String[] split = statement.split("(?<!\\\\),");
         for(int i=0;i<split.length;i++) {
-            split[i] = split[i].trim();
+            split[i] = split[i].trim().replace("\\,",",");
         }
         return new ArrayList<>(Arrays.asList(split));
     }
